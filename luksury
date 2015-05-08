@@ -97,9 +97,6 @@ if [ $UMOUNT_MODE = 0 ]; then
         check_error $? $LINENO "$MP mounted"
     done
 
-    touch /tmp/$LUKS_NAME.lock
-    check_error $? $LINENO "Lockfile created"
-
     if [ $WAIT_MODE = 1 ]; then
         logger info "Press Enter to unmount"
         read
@@ -114,7 +111,4 @@ else
 
     cryptsetup luksClose $LUKS_NAME
     check_error $? $LINENO "$LUKS_NAME LUKS closed"
-
-    rm /tmp/$LUKS_NAME.lock
-    check_error $? $LINENO "Lockfile removed"
 fi
