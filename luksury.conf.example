@@ -1,0 +1,6 @@
+export LUKS_UUID=deadbeef-1337-1337-1337-123456789abc
+export LUKS_KEYFILE=/path/to/key
+export LUKS_NAME=mystorage
+
+export LVM_VG=encryptedvg
+export LVM_MOUNTS="/media/mount1 /media/mount2"
