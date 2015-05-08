@@ -1,0 +1,120 @@
+#!/bin/zsh
+
+# Always run as root.
+if [ $UID != 0 ]; then
+    # The config should be initialized and loaded as a non-root user!
+    CONF_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/luksury
+    mkdir -p $CONF_DIR
+    if ! [ -r $CONF_DIR/luksury.sh ]; then
+        echo "$CONF_DIR/luksury.sh missing!"
+        exit 1
+    fi
+    source $CONF_DIR/luksury.sh
+
+    exec sudo -E $0 $argv
+fi
+
+UMOUNT_MODE=0
+WAIT_MODE=0
+KEEP_GOING=0
+while getopts "duwk" ARG; do
+    case "$ARG" in
+        d|u)
+            UMOUNT_MODE=1
+            ;;
+        w)
+            WAIT_MODE=1
+            ;;
+        k)
+            KEEP_GOING=1
+            ;;
+    esac
+done
+shift $[$OPTIND-1]
+
+autoload -U colors && colors
+
+
+check_error()
+{
+    local EXITCODE LINE MSG
+    EXITCODE=$1
+    LINE=$2
+    MSG=$3
+
+    local TYPE
+    if [ $EXITCODE = 0 ]; then
+        TYPE=ok
+    else
+        if [ $KEEP_GOING != 0 ]; then
+            TYPE=warn
+        else
+            logger err "Error on line: $LINE"
+            exit $EXITCODE
+        fi
+    fi
+
+    logger $TYPE $MSG
+}
+logger()
+{
+    local TYPE TYPESTR
+    TYPE=$1
+    shift
+    case $TYPE in
+        ok)
+            TYPESTR="[$fg[green]OK$reset_color]"
+            ;;
+        info)
+            TYPESTR="[$fg[cyan]INFO$reset_color]"
+            ;;
+        warn)
+            TYPESTR="[$fg[yellow]WARN$reset_color]"
+            ;;
+        err)
+            TYPESTR="[$fg[red]ERR$reset_color]"
+            ;;
+        *)
+            logger err "Unknown log type: $TYPE"
+            exit 1
+            ;;
+    esac
+
+    print " $TYPESTR" "$@"
+}
+
+
+
+if [ $UMOUNT_MODE = 0 ]; then
+    cryptsetup luksOpen UUID=$LUKS_UUID $LUKS_NAME --key-file $LUKS_KEYFILE
+    check_error $? $LINENO "$LUKS_NAME decrypted"
+
+    vgchange -ay $LVM_VG
+    check_error $? $LINENO "$LVM_VG VG activated"
+
+    for MP in ${=LVM_MOUNTS}; do
+        mount $MP
+        check_error $? $LINENO "$MP mounted"
+    done
+
+    touch /tmp/$LUKS_NAME.lock
+    check_error $? $LINENO "Lockfile created"
+
+    if [ $WAIT_MODE = 1 ]; then
+        logger info "Press Enter to unmount"
+        read
+        exec $0 -u
+    fi
+else
+    umount ${=LVM_MOUNTS}
+    check_error $? $LINENO "Logical volumes unmounted"
+
+    vgchange -an $LVM_VG
+    check_error $? $LINENO "$LVM_VG VG deactivated"
+
+    cryptsetup luksClose $LUKS_NAME
+    check_error $? $LINENO "$LUKS_NAME LUKS closed"
+
+    rm /tmp/$LUKS_NAME.lock
+    check_error $? $LINENO "Lockfile removed"
+fi
