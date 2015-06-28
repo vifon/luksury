@@ -4,3 +4,5 @@ export LUKS_NAME=mystorage
 
 export LVM_VG=encryptedvg
 export LVM_MOUNTS="/media/mount1 /media/mount2"
+
+export LOCKFILE=/tmp/mydisk-mount.lock
