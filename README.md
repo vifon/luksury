@@ -33,9 +33,14 @@ script but that's not important most of the time), which looks like this:
     export LVM_VG=[vg name]
     export LVM_MOUNTS=[space-separated arguments for mount]
 
+    export LOCKFILE=[path to a temporary file]
+
 The devices and/or mountpoints specified in `LVM_MOUNTS` should be
 configured in your `/etc/fstab` so that `mount(1)` will know what to
 do exactly.
+
+`LOCKFILE` is a file that will be created after a successful mount and
+removed after a successful unmount.
 
 OPTIONS
 -------
